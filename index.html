@@ -7,7 +7,9 @@
     <title>Assay - Runtime Security for AI Agents</title>
     <meta name="description"
         content="Policy enforcement for MCP servers. Protect your AI agents from unauthorized tool calls.">
-
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
     <style>
         /*
       Theme: Neutral, Reliability, Speed.
@@ -30,8 +32,8 @@
             --accent-dim: #059669;
             --accent-glow: rgba(16, 185, 129, 0.15);
 
-            --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
-            --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+            --font-sans: 'Inter', -apple-system, system-ui, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
         }
 
         * {
@@ -83,6 +85,7 @@
             animation: fade-in 0.5s ease-out;
         }
 
+        /* Minimalist Logo Construction */
         .logo-svg {
             width: 100%;
             height: 100%;
@@ -92,16 +95,20 @@
         .logo-svg path.shape {
             fill: var(--surface);
             stroke: var(--fg);
-            stroke-width: 3;
+            stroke-width: 2;
         }
 
         .logo-svg path.check {
             stroke: var(--accent);
+            stroke-width: 3;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            fill: none;
         }
 
         h1 {
             font-size: 2.5rem;
-            font-weight: 700;
+            font-weight: 600;
             letter-spacing: -0.04em;
             text-align: center;
             color: #fff;
@@ -128,7 +135,7 @@
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: 8px;
-            padding: 1.25rem;
+            padding: 1rem 1.25rem;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -143,7 +150,7 @@
 
         .cmd {
             font-family: var(--font-mono);
-            font-size: 0.9375rem;
+            font-size: 0.875rem;
             color: var(--accent);
             overflow-x: auto;
             white-space: nowrap;
@@ -160,8 +167,8 @@
             background: transparent;
             border: 1px solid var(--border);
             color: var(--fg);
-            width: 36px;
-            height: 36px;
+            width: 32px;
+            height: 32px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -176,27 +183,17 @@
             color: #fff;
         }
 
-        .copy-btn svg {
-            width: 16px;
-            height: 16px;
-            fill: none;
-            stroke: currentColor;
-            stroke-width: 2;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-        }
-
         /* Features Grid */
         .grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 2rem 3rem;
+            gap: 2rem;
             margin-bottom: 5rem;
             animation: fade-in-up 0.6s ease-out 0.2s backwards;
         }
 
         .feature h3 {
-            font-size: 1rem;
+            font-size: 0.9375rem;
             font-weight: 600;
             margin-bottom: 0.5rem;
             color: #fff;
@@ -207,14 +204,21 @@
 
         .feature h3 svg {
             color: var(--muted);
-            width: 18px;
-            height: 18px;
+            width: 16px;
+            height: 16px;
+            transition: color 0.2s;
+        }
+
+        .feature:hover h3 svg {
+            color: var(--accent);
         }
 
         .feature p {
             color: var(--muted);
-            font-size: 0.9375rem;
+            font-size: 0.875rem;
             line-height: 1.6;
+            margin-left: 1.5rem;
+            /* Align with text start */
         }
 
         /* Links */
@@ -229,8 +233,8 @@
         .link-item {
             color: var(--muted);
             text-decoration: none;
-            font-size: 0.9375rem;
-            font-weight: 500;
+            font-size: 0.875rem;
+            font-family: var(--font-mono);
             transition: color 0.2s;
             display: flex;
             align-items: center;
@@ -239,6 +243,8 @@
 
         .link-item:hover {
             color: var(--fg);
+            text-decoration: underline;
+            text-decoration-color: var(--accent);
         }
 
         /* Footer */
@@ -248,7 +254,8 @@
             border-top: 1px solid var(--border);
             text-align: center;
             color: #52525b;
-            font-size: 0.8125rem;
+            font-size: 0.75rem;
+            font-family: var(--font-mono);
         }
 
         /* Animations */
@@ -276,7 +283,6 @@
             }
         }
 
-        /* Mobile */
         @media (max-width: 640px) {
             header {
                 padding-top: 4rem;
@@ -285,32 +291,88 @@
             h1 {
                 font-size: 2rem;
             }
-
-            .grid {
-                grid-template-columns: 1fr;
-                gap: 2rem;
-            }
         }
     </style>
 </head>
-<svg class="w-6 h-6 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-        d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z">
-    </path>
-</svg>
-</div>
-<h3 class="text-white font-semibold mb-2">Assay Doctor</h3>
-<p class="text-slate-400 text-sm">Self-repairing diagnostics. Find configuration drift and fix it automatically.</p>
-</div>
-</div>
 
-</main>
+<body>
 
-<footer class="w-full max-w-6xl mx-auto px-6 py-12 border-t border-slate-800/50 text-center">
-    <p class="text-slate-500 text-sm">
-        &copy; 2026 Assay. Open Source under MIT.
-    </p>
-</footer>
+    <div class="container">
+        <header>
+            <div class="logo-container">
+                <!-- Assay Logo SVG -->
+                <svg class="logo-svg" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path class="shape" d="M50 5 L95 25 V75 L50 95 L5 75 V25 Z" />
+                    <path class="check" d="M30 50 L45 65 L70 35" />
+                </svg>
+            </div>
+
+            <div>
+                <h1>Assay</h1>
+                <p class="tagline">Runtime security for the agentic web.</p>
+            </div>
+        </header>
+
+        <div class="install-wrapper">
+            <div class="install-box">
+                <code class="cmd">curl -fsSL https://getassay.dev/install.sh | sh</code>
+                <button class="copy-btn"
+                    onclick="navigator.clipboard.writeText('curl -fsSL https://getassay.dev/install.sh | sh')"
+                    title="Copy to clipboard">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" />
+                        <path
+                            d="M5 15H4C2.89543 15 2 14.1046 2 13V4C2 2.89543 2.89543 2 4 2H13C14.1046 2 15 2.89543 15 4V5"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="links">
+            <a href="https://github.com/Rul1an/assay" class="link-item">GITHUB</a>
+            <a href="https://docs.assay.dev" class="link-item">DOCS</a>
+            <a href="https://crates.io/crates/assay-core" class="link-item">CRATES.IO</a>
+        </div>
+
+        <div class="grid">
+            <div class="feature">
+                <h3>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    </svg>
+                    Strict Policy
+                </h3>
+                <p>Deny-by-default execution for MCP servers. Validate every tool call against strict regex patterns
+                    before it executes.</p>
+            </div>
+            <div class="feature">
+                <h3>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                    </svg>
+                    Zero Latency
+                </h3>
+                <p>Built in Rust. Overhead measured in microseconds. Designed for the high-throughput requirements of
+                    autonomous agents.</p>
+            </div>
+            <div class="feature">
+                <h3>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                    </svg>
+                    Observability
+                </h3>
+                <p>Structured audit logs for every interaction. Self-healing "Doctor" commands to diagnose configuration
+                    drift.</p>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>MIT Licensed • Open Source • 2026</p>
+    </footer>
 
 </body>
 
