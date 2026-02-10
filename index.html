@@ -1,39 +1,27 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Assay - Runtime Security for AI Agents</title>
     <meta name="description"
-        content="Policy enforcement for MCP servers. Protect your AI agents from unauthorized tool calls.">
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
-        rel="stylesheet">
+        content="Deterministic replay, policy enforcement, and evidence bundles for autonomous agents. Runs offline. No telemetry. No vendor lock-in.">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
+
     <style>
-        /*
-      Theme: Neutral, Reliability, Speed.
-      "Bleeding Edge 2026": Clean, high contrast, semantic, raw.
-    */
         :root {
             --bg: #09090b;
-            /* Zinc 950 */
             --fg: #e4e4e7;
-            /* Zinc 200 */
             --muted: #71717a;
-            /* Zinc 500 */
             --border: #27272a;
-            /* Zinc 800 */
             --surface: #18181b;
-            /* Zinc 900 */
-
-            /* Accent: Emerald for "Verified/Safe/Reliable". No purple. */
+            --surface-hover: #27272a;
             --accent: #10b981;
-            --accent-dim: #059669;
             --accent-glow: rgba(16, 185, 129, 0.15);
-
-            --font-sans: 'Inter', -apple-system, system-ui, sans-serif;
-            --font-mono: 'JetBrains Mono', monospace;
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --font-mono: 'JetBrains Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
         }
 
         * {
@@ -42,338 +30,302 @@
             box-sizing: border-box;
         }
 
-        ::selection {
-            background: var(--accent);
-            color: var(--bg);
-        }
-
         body {
             font-family: var(--font-sans);
             background: var(--bg);
             color: var(--fg);
-            line-height: 1.5;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            /* Subtle scanline/grid texture for "Vibecoder" feel without fluff */
-            background-image:
-                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-            background-size: 32px 32px;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        /* Ambient Background Noise */
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: -1;
         }
 
         .container {
-            max-width: 680px;
+            max-width: 1200px;
             margin: 0 auto;
             padding: 0 1.5rem;
-            width: 100%;
         }
 
         /* Header */
         header {
-            padding-top: 6rem;
-            padding-bottom: 4rem;
             display: flex;
-            flex-direction: column;
+            justify-content: space-between;
             align-items: center;
-            gap: 1.5rem;
+            padding: 2rem 0;
         }
 
-        .logo-container {
-            width: 64px;
-            height: 64px;
-            animation: fade-in 0.5s ease-out;
+        .logo {
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: #fff;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
-        /* Minimalist Logo Construction */
-        .logo-svg {
-            width: 100%;
-            height: 100%;
-            filter: drop-shadow(0 0 12px var(--accent-glow));
+        nav a {
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 0.9rem;
+            margin-left: 1.5rem;
+            transition: color 0.2s;
         }
 
-        .logo-svg path.shape {
-            fill: var(--surface);
-            stroke: var(--fg);
-            stroke-width: 2;
+        nav a:hover {
+            color: var(--fg);
         }
 
-        .logo-svg path.check {
-            stroke: var(--accent);
-            stroke-width: 3;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-            fill: none;
+        /* Hero Section */
+        .hero {
+            padding: 6rem 0 4rem;
+            text-align: center;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent);
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-bottom: 2rem;
+            border: 1px solid rgba(16, 185, 129, 0.2);
         }
 
         h1 {
-            font-size: 2.5rem;
-            font-weight: 600;
-            letter-spacing: -0.04em;
-            text-align: center;
-            color: #fff;
+            font-size: clamp(2.5rem, 5vw, 4.5rem);
+            line-height: 1.1;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            background: linear-gradient(to bottom right, #fff, #a1a1aa);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 1.5rem;
         }
 
-        .tagline {
+        .subtitle {
+            font-size: 1.25rem;
             color: var(--muted);
-            font-size: 1.125rem;
-            text-align: center;
-            max-width: 480px;
-            font-weight: 400;
-            letter-spacing: -0.01em;
+            max-width: 600px;
+            margin: 0 auto 3rem;
         }
 
-        /* Install Block - The Hero */
-        .install-wrapper {
-            margin: 1rem 0 4rem;
-            position: relative;
-            width: 100%;
-            animation: fade-in-up 0.6s ease-out 0.1s backwards;
-        }
-
-        .install-box {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1rem 1.25rem;
+        .cta-group {
             display: flex;
-            align-items: center;
-            justify-content: space-between;
             gap: 1rem;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-            transition: border-color 0.2s;
-        }
-
-        .install-box:hover {
-            border-color: var(--muted);
-        }
-
-        .cmd {
-            font-family: var(--font-mono);
-            font-size: 0.875rem;
-            color: var(--accent);
-            overflow-x: auto;
-            white-space: nowrap;
-            scrollbar-width: none;
-        }
-
-        .cmd::before {
-            content: "$ ";
-            color: var(--muted);
-            user-select: none;
-        }
-
-        .copy-btn {
-            background: transparent;
-            border: 1px solid var(--border);
-            color: var(--fg);
-            width: 32px;
-            height: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 6px;
-            cursor: pointer;
-            flex-shrink: 0;
-            transition: all 0.2s;
-        }
-
-        .copy-btn:hover {
-            background: var(--border);
-            color: #fff;
-        }
-
-        /* Features Grid */
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 2rem;
-            margin-bottom: 5rem;
-            animation: fade-in-up 0.6s ease-out 0.2s backwards;
-        }
-
-        .feature h3 {
-            font-size: 0.9375rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            color: #fff;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .feature h3 svg {
-            color: var(--muted);
-            width: 16px;
-            height: 16px;
-            transition: color 0.2s;
-        }
-
-        .feature:hover h3 svg {
-            color: var(--accent);
-        }
-
-        .feature p {
-            color: var(--muted);
-            font-size: 0.875rem;
-            line-height: 1.6;
-            margin-left: 1.5rem;
-            /* Align with text start */
-        }
-
-        /* Links */
-        .links {
-            display: flex;
-            gap: 1.5rem;
             justify-content: center;
             margin-bottom: 4rem;
-            animation: fade-in-up 0.6s ease-out 0.3s backwards;
         }
 
-        .link-item {
-            color: var(--muted);
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
             text-decoration: none;
-            font-size: 0.875rem;
-            font-family: var(--font-mono);
-            transition: color 0.2s;
+            transition: transform 0.1s, opacity 0.2s;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-primary {
+            background: var(--fg);
+            color: var(--bg);
+        }
+
+        .btn-secondary {
+            background: var(--surface);
+            color: var(--fg);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--surface-hover);
+        }
+
+        /* Video Container */
+        .video-wrapper {
+            position: relative;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 20px 40px -10px rgba(0, 0, 0, 0.5);
+            max-width: 1000px;
+            margin: 0 auto;
+            aspect-ratio: 16/9;
+            background: #000;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.9;
+        }
+
+        /* Bento Grid */
+        .features {
+            padding: 6rem 0;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .card:hover {
+            border-color: var(--muted);
+            transform: translateY(-2px);
+        }
+
+        .card h3 {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            color: #fff;
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 0.75rem;
         }
 
-        .link-item:hover {
+        .card p {
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        .card-icon {
+            width: 32px;
+            height: 32px;
+            background: var(--border);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             color: var(--fg);
-            text-decoration: underline;
-            text-decoration-color: var(--accent);
         }
 
         /* Footer */
         footer {
-            margin-top: auto;
-            padding: 2rem 0;
             border-top: 1px solid var(--border);
+            padding: 4rem 0;
             text-align: center;
-            color: #52525b;
-            font-size: 0.75rem;
+            color: var(--muted);
+            font-size: 0.875rem;
+        }
+
+        .privacy-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 6px;
+            color: var(--fg);
             font-family: var(--font-mono);
-        }
-
-        /* Animations */
-        @keyframes fade-in {
-            from {
-                opacity: 0;
-                transform: scale(0.95);
-            }
-
-            to {
-                opacity: 1;
-                transform: scale(1);
-            }
-        }
-
-        @keyframes fade-in-up {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @media (max-width: 640px) {
-            header {
-                padding-top: 4rem;
-            }
-
-            h1 {
-                font-size: 2rem;
-            }
+            font-size: 0.8rem;
         }
     </style>
 </head>
 
 <body>
-
     <div class="container">
         <header>
-            <div class="logo-container">
-                <!-- Assay Logo SVG -->
-                <svg class="logo-svg" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path class="shape" d="M50 5 L95 25 V75 L50 95 L5 75 V25 Z" />
-                    <path class="check" d="M30 50 L45 65 L70 35" />
+            <a href="/" class="logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    <path d="m9 12 2 2 4-4" />
                 </svg>
-            </div>
-
-            <div>
-                <h1>Assay</h1>
-                <p class="tagline">Runtime security for the agentic web.</p>
-            </div>
+                Assay
+            </a>
+            <nav>
+                <a href="https://github.com/Rul1an/assay">GitHub</a>
+                <a href="https://docs.assay.dev">Docs</a>
+            </nav>
         </header>
 
-        <div class="install-wrapper">
-            <div class="install-box">
-                <code class="cmd">curl -fsSL https://getassay.dev/install.sh | sh</code>
-                <button class="copy-btn"
-                    onclick="navigator.clipboard.writeText('curl -fsSL https://getassay.dev/install.sh | sh')"
-                    title="Copy to clipboard">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2"
-                            stroke-linecap="round" stroke-linejoin="round" />
-                        <path
-                            d="M5 15H4C2.89543 15 2 14.1046 2 13V4C2 2.89543 2.89543 2 4 2H13C14.1046 2 15 2.89543 15 4V5"
-                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                    </svg>
-                </button>
-            </div>
-        </div>
+        <section class="hero">
+            <div class="pill">runs offline • no telemetry • rust native</div>
+            <h1>Runtime Security for<br>Autonomous Agents.</h1>
+            <p class="subtitle">Deterministic replay, policy enforcement, and cryptographic evidence bundles. Protect
+                your agentic workflows from hallucinated tool calls.</p>
 
-        <div class="links">
-            <a href="https://github.com/Rul1an/assay" class="link-item">GITHUB</a>
-            <a href="https://docs.assay.dev" class="link-item">DOCS</a>
-            <a href="https://crates.io/crates/assay-core" class="link-item">CRATES.IO</a>
-        </div>
+            <div class="cta-group">
+                <a href="https://github.com/Rul1an/assay" class="btn btn-primary">Try it on GitHub</a>
+                <a href="https://github.com/codespaces/new?hide_repo_select=true&ref=main&repo=Rul1an/assay"
+                    class="btn btn-secondary">Open in Codespace</a>
+            </div>
 
-        <div class="grid">
-            <div class="feature">
-                <h3>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                    </svg>
-                    Strict Policy
-                </h3>
-                <p>Deny-by-default execution for MCP servers. Validate every tool call against strict regex patterns
-                    before it executes.</p>
+            <div class="video-wrapper">
+                <video autoplay loop muted playsinline poster="assets/hero.gif">
+                    <source src="assets/hero.mp4" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
             </div>
-            <div class="feature">
-                <h3>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                    </svg>
-                    Zero Latency
-                </h3>
-                <p>Built in Rust. Overhead measured in microseconds. Designed for the high-throughput requirements of
-                    autonomous agents.</p>
+        </section>
+
+        <section class="features">
+            <div class="card">
+                <div class="card-icon">⚡</div>
+                <h3>Zero Latency</h3>
+                <p>Built in Rust with eBPF enforcement. Overhead measured in microseconds, designed for high-throughput
+                    agent loops.</p>
             </div>
-            <div class="feature">
-                <h3>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-                    </svg>
-                    Observability
-                </h3>
-                <p>Structured audit logs for every interaction. Self-healing "Doctor" commands to diagnose configuration
-                    drift.</p>
+            <div class="card">
+                <div class="card-icon">🔒</div>
+                <h3>Strict Policy</h3>
+                <p>Deny-by-default execution for MCP servers. Validate every tool call against regex patterns and
+                    semantic constraints.</p>
             </div>
-        </div>
+            <div class="card">
+                <div class="card-icon">📦</div>
+                <h3>Evidence Bundles</h3>
+                <p>Generate cryptographic proof of compliance. JCS canonicalization and Merkle roots ensure audit-ready
+                    traceability.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">🧪</div>
+                <h3>Deterministic Replay</h3>
+                <p>Re-run agent traces offline with exact input reproduction. Eliminate flaky tests in your CI pipeline.
+                </p>
+            </div>
+        </section>
+
+        <footer>
+            <p>&copy; 2026 Assay. Open Source (MIT).</p>
+            <div class="privacy-badge">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                No telemetry. No tracking cookies.
+            </div>
+        </footer>
     </div>
-
-    <footer>
-        <p>MIT Licensed • Open Source • 2026 • <a href="https://github.com/Rul1an/assay" style="color: inherit; text-decoration: none;">GitHub</a></p>
-    </footer>
-
 </body>
 
 </html>
