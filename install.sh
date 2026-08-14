@@ -7,14 +7,24 @@
 #   curl -fsSL https://getassay.dev/install.sh | sh
 #   curl -fsSL https://getassay.dev/install.sh | ASSAY_VERSION=1.3.0 sh
 #
+# Canonical explicit input is X.Y.Z (no leading v). ASSAY_VERSION=1.3.0 and
+# ASSAY_VERSION=v1.3.0 both install the v1.3.0 release tag and archive.
+# `latest` is unchanged. Any other value is rejected before network access.
+#
 
 set -e
 
 # --- Configuration ---
 GITHUB_REPO="Rul1an/assay"
-BINARY_NAME="assay"
+
 INSTALL_DIR="${ASSAY_INSTALL_DIR:-$HOME/.local/bin}"
-VERSION="${ASSAY_VERSION:-latest}"
+# Unset defaults to latest. An explicitly empty value is malformed and must
+# not be rewritten to latest (that would hit the network).
+if [ -z "${ASSAY_VERSION+x}" ]; then
+    VERSION="latest"
+else
+    VERSION="$ASSAY_VERSION"
+fi
 
 # --- Colors ---
 RED='\033[0;31m'
@@ -30,9 +40,40 @@ log_success() { printf "${GREEN}${BOLD}[OK]${NC} %s\n" "$1"; }
 log_warn() { printf "${YELLOW}${BOLD}[WARN]${NC} %s\n" "$1"; }
 log_error() { printf "${RED}${BOLD}[ERROR]${NC} %s\n" "$1"; exit 1; }
 
+# One predicate for "this is a published stable software tag". Total /
+# fail-closed for empty, whitespace, slash, and `..` so line-oriented
+# grep cannot accept a multiline extraction. Explicit and latest both
+# use this function; normalize does not repeat the reject rule.
+is_stable_release_tag() {
+    case "$1" in
+        ""|*[[:space:]]*|*/*|*..*)
+            return 1
+            ;;
+    esac
+    printf '%s\n' "$1" | grep -Eq '^v[0-9]+[.][0-9]+[.][0-9]+$'
+}
+
+# latest is preserved. Exactly one optional leading v is accepted; the
+# result is the vX.Y.Z tag/archive form, or a failure before any download.
+normalize_install_version() {
+    if [ "$1" = "latest" ]; then
+        printf '%s\n' "latest"
+        return 0
+    fi
+    _candidate="$1"
+    case "$_candidate" in
+        v*) ;;
+        *) _candidate="v${_candidate}" ;;
+    esac
+    if ! is_stable_release_tag "$_candidate"; then
+        return 1
+    fi
+    printf '%s\n' "$_candidate"
+}
+
 # --- Main ---
 main() {
-    printf "${BOLD}✨ Assay Installer${NC}\n"
+    printf "%b✨ Assay Installer%b\n" "${BOLD}" "${NC}"
     printf "\n"
 
     # 1. Detect OS & Arch
@@ -71,6 +112,8 @@ main() {
     log_info "Detected platform: $OS/$ARCH ($TARGET)"
 
     # 2. Resolve Version
+    VERSION="$(normalize_install_version "$VERSION")" || log_error "ASSAY_VERSION must be latest or a stable X.Y.Z (optional leading v)"
+
     if [ "$VERSION" = "latest" ]; then
         log_info "Resolving latest version..."
         # Fetch latest release tag from GitHub API
@@ -81,6 +124,9 @@ main() {
         VERSION=$(echo "$RELEASE_JSON" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
         if [ -z "$VERSION" ]; then
             log_error "Failed to resolve latest version."
+        fi
+        if ! is_stable_release_tag "$VERSION"; then
+            log_error "latest Assay release is not a stable software tag: $VERSION"
         fi
     fi
 
@@ -159,12 +205,12 @@ main() {
             printf "\n"
             log_warn "Your path is missing $INSTALL_DIR"
             printf "   Add this to your shell config (~/.zshrc, ~/.bashrc):\n"
-            printf "   ${BOLD}export PATH=\"\$PATH:$INSTALL_DIR\"${NC}\n"
+            printf "   %bexport PATH=\"\$PATH:%s\"%b\n" "${BOLD}" "$INSTALL_DIR" "${NC}"
             printf "\n"
             ;;
     esac
 
-    printf "Run ${BOLD}assay --help${NC} to get started.\n"
+    printf "Run %bassay --help%b to get started.\n" "${BOLD}" "${NC}"
 }
 
 main "$@"
