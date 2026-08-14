@@ -126,6 +126,26 @@ run_in_root() {
   printf '%s\n' "$got"
 }
 
+pin_set_raw() {
+  python3 - "$1/install.provenance.json" "$2" "$3" <<'PY'
+import json, sys
+path, key, literal = sys.argv[1], sys.argv[2], sys.argv[3]
+pin = json.load(open(path, encoding="utf-8"))
+pin[key] = json.loads(literal)
+json.dump(pin, open(path, "w", encoding="utf-8"), indent=2)
+PY
+}
+
+pin_del() {
+  python3 - "$1/install.provenance.json" "$2" <<'PY'
+import json, sys
+path, key = sys.argv[1], sys.argv[2]
+pin = json.load(open(path, encoding="utf-8"))
+pin.pop(key, None)
+json.dump(pin, open(path, "w", encoding="utf-8"), indent=2)
+PY
+}
+
 slug() { printf '%s' "$1" | tr -c 'a-zA-Z0-9' '-'; }
 
 expect_pin_rejected() {
@@ -189,7 +209,49 @@ expect_symlinked_component_rejected() {
   fi
 }
 
+# A pin that declares a schema this checker does not implement must not be read
+# under this one. The schema field was previously declared and never consulted,
+# so every one of these cases passed while reporting "verified".
+expect_pin_rejected_raw() {
+  local label="$1" key="$2" literal="$3" dir got
+  dir="$(scratch_root "$(slug "$label")")"
+  pin_set_raw "$dir" "$key" "$literal"
+  got="$(run_in_root "$dir")"
+  if [ "$got" -ne 0 ]; then
+    printf 'ok   %s rejected (exit %s)\n' "$label" "$got"
+  else
+    printf 'FAIL %s accepted: pin had %s=%s and the check went green\n' \
+      "$label" "$key" "$literal" >&2
+    sed 's/^/      /' "$SCRATCH/out" >&2
+    failures=$((failures + 1))
+  fi
+}
+
+expect_pin_rejected_absent() {
+  local label="$1" key="$2" dir got
+  dir="$(scratch_root "$(slug "$label")")"
+  pin_del "$dir" "$key"
+  got="$(run_in_root "$dir")"
+  if [ "$got" -ne 0 ]; then
+    printf 'ok   %s rejected (exit %s)\n' "$label" "$got"
+  else
+    printf 'FAIL %s accepted: pin had no %s and the check went green\n' \
+      "$label" "$key" >&2
+    sed 's/^/      /' "$SCRATCH/out" >&2
+    failures=$((failures + 1))
+  fi
+}
+
 expect_pin_accepted "canonical pin"
+
+expect_pin_rejected "schema next version"    schema "getassay.installer_provenance.v2"
+expect_pin_rejected "schema unrelated"       schema "totally-different"
+expect_pin_rejected "schema empty string"    schema ""
+expect_pin_rejected_absent "schema missing"  schema
+expect_pin_rejected_raw "schema null"        schema "null"
+expect_pin_rejected_raw "schema number"      schema "1"
+expect_pin_rejected_raw "schema array"       schema "[]"
+expect_pin_rejected_raw "schema object"      schema "{}"
 
 expect_pin_rejected "source_path traversal"        source_path "x/../scripts/install.sh"
 expect_pin_rejected "source_path absolute"         source_path "/scripts/install.sh"

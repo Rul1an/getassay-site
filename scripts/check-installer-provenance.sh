@@ -48,6 +48,24 @@ print(value)
 PY
 }
 
+# The pin declares which contract it is written to, and this checker implements
+# exactly one. A pin on another schema may define these same fields differently,
+# so an unrecognised schema is rejected rather than interpreted optimistically.
+# Checked before any other field is read, because the schema is what makes the
+# rest of the pin mean anything.
+#
+# Two literals are correct here and are not a drift risk: this constant is the
+# checker's statement of the schema it implements, the pin's field is the data's
+# claim about itself, and this comparison is what pins the two together.
+EXPECTED_SCHEMA="getassay.installer_provenance.v1"
+
+PIN_SCHEMA="$(read_pin schema)"
+if [ "$PIN_SCHEMA" != "$EXPECTED_SCHEMA" ]; then
+  die "provenance pin declares schema '$PIN_SCHEMA' but this checker implements
+  '$EXPECTED_SCHEMA'; a pin written to another schema may define these fields
+  differently, so it is not read under this one"
+fi
+
 SOURCE_REPO="$(read_pin source_repo)"
 SOURCE_COMMIT="$(read_pin source_commit)"
 SOURCE_PATH="$(read_pin source_path)"
@@ -77,6 +95,13 @@ validate_hex() {
 # One rule for "this is a canonical repository-relative path", used for every
 # path field in the pin. Writing it once is the point: a source path validated
 # differently from a target path is two definitions of the same claim.
+#
+# The accepted character set is a deliberately conservative subset of what Git
+# permits in a path: '+' and other legal-but-unusual characters are rejected.
+# That is a constraint of the getassay.installer_provenance.v1 pin schema, whose
+# source and target are fixed, known paths that satisfy it, and not a claim about
+# what Git allows. Widening it is a schema revision with its own review rather
+# than a quiet broadening here.
 validate_pin_path() {
   case "$2" in
     "") die "$1 must not be empty" ;;
