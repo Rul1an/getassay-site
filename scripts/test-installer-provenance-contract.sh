@@ -85,6 +85,131 @@ expect_skip_states_non_claim() {
   fi
 }
 
+# --- pin-denotation cases -----------------------------------------------------
+#
+# A digest proves which bytes were fetched. It does not prove that the pin's
+# fields name where they came from, and it does not prove which filesystem path
+# holds them. Both are provenance claims in their own right, so a pin that
+# fetches the right bytes while naming a different repo or path, or a target that
+# is a symlink to the right bytes, must fail rather than read as clean.
+#
+# Every case below runs with a stub curl that WOULD succeed with the correct
+# body, so a rejection can only come from validating the pin, never from network.
+
+scratch_root() {
+  local dir="$SCRATCH/root-$1"
+  mkdir -p "$dir/scripts"
+  cp "$ROOT/install.provenance.json" "$dir/"
+  cp "$ROOT/install.sh" "$dir/"
+  cp "$CHECKER" "$dir/scripts/check-installer-provenance.sh"
+  chmod +x "$dir/scripts/check-installer-provenance.sh"
+  printf '%s\n' "$dir"
+}
+
+pin_set() {
+  python3 - "$1/install.provenance.json" "$2" "$3" <<'PY'
+import json, sys
+path, key, value = sys.argv[1], sys.argv[2], sys.argv[3]
+pin = json.load(open(path, encoding="utf-8"))
+pin[key] = value
+json.dump(pin, open(path, "w", encoding="utf-8"), indent=2)
+PY
+}
+
+run_in_root() {
+  make_stub
+  set +e
+  STUB_RC=0 STUB_BODY="$GOOD_BODY" PATH="$SCRATCH/bin:$PATH" \
+    bash "$1/scripts/check-installer-provenance.sh" >"$SCRATCH/out" 2>&1
+  local got=$?
+  set -e
+  printf '%s\n' "$got"
+}
+
+slug() { printf '%s' "$1" | tr -c 'a-zA-Z0-9' '-'; }
+
+expect_pin_rejected() {
+  local label="$1" key="$2" value="$3" dir got
+  dir="$(scratch_root "$(slug "$label")")"
+  pin_set "$dir" "$key" "$value"
+  got="$(run_in_root "$dir")"
+  if [ "$got" -ne 0 ]; then
+    printf 'ok   %s rejected (exit %s)\n' "$label" "$got"
+  else
+    printf 'FAIL %s accepted: pin named %s=%s and the check went green\n' \
+      "$label" "$key" "$value" >&2
+    sed 's/^/      /' "$SCRATCH/out" >&2
+    failures=$((failures + 1))
+  fi
+}
+
+expect_pin_accepted() {
+  local label="$1" dir got
+  dir="$(scratch_root "$(slug "$label")")"
+  got="$(run_in_root "$dir")"
+  if [ "$got" -eq 0 ]; then
+    printf 'ok   %s accepted (exit 0)\n' "$label"
+  else
+    printf 'FAIL %s: the canonical pin must still pass, exited %s\n' "$label" "$got" >&2
+    sed 's/^/      /' "$SCRATCH/out" >&2
+    failures=$((failures + 1))
+  fi
+}
+
+# The target path must be the real path, not a link that resolves to the bytes.
+expect_symlinked_target_rejected() {
+  local dir got
+  dir="$(scratch_root "symlink-target")"
+  mv "$dir/install.sh" "$dir/elsewhere.sh"
+  ln -s "$dir/elsewhere.sh" "$dir/install.sh"
+  got="$(run_in_root "$dir")"
+  if [ "$got" -ne 0 ]; then
+    printf 'ok   symlinked target rejected (exit %s)\n' "$got"
+  else
+    printf 'FAIL symlinked target accepted: install.sh was a symlink and the check went green\n' >&2
+    sed 's/^/      /' "$SCRATCH/out" >&2
+    failures=$((failures + 1))
+  fi
+}
+
+expect_symlinked_component_rejected() {
+  local dir got
+  dir="$(scratch_root "symlink-component")"
+  mkdir -p "$dir/real"
+  mv "$dir/install.sh" "$dir/real/install.sh"
+  ln -s "$dir/real" "$dir/served"
+  pin_set "$dir" target_path "served/install.sh"
+  got="$(run_in_root "$dir")"
+  if [ "$got" -ne 0 ]; then
+    printf 'ok   symlinked path component rejected (exit %s)\n' "$got"
+  else
+    printf 'FAIL symlinked component accepted: served/ was a symlink and the check went green\n' >&2
+    sed 's/^/      /' "$SCRATCH/out" >&2
+    failures=$((failures + 1))
+  fi
+}
+
+expect_pin_accepted "canonical pin"
+
+expect_pin_rejected "source_path traversal"        source_path "x/../scripts/install.sh"
+expect_pin_rejected "source_path absolute"         source_path "/scripts/install.sh"
+expect_pin_rejected "source_path dot segment"      source_path "./scripts/install.sh"
+expect_pin_rejected "source_path empty segment"    source_path "scripts//install.sh"
+expect_pin_rejected "source_path percent-encoded"  source_path "%2e%2e/scripts/install.sh"
+expect_pin_rejected "source_path trailing slash"   source_path "scripts/install.sh/"
+
+expect_pin_rejected "source_repo traversal"        source_repo "Rul1an/assay/../../Rul1an/assay"
+expect_pin_rejected "source_repo dot segment"      source_repo "./Rul1an/assay"
+expect_pin_rejected "source_repo missing slash"    source_repo "Rul1an"
+expect_pin_rejected "source_repo extra segment"    source_repo "Rul1an/assay/extra"
+
+expect_pin_rejected "target_path traversal"        target_path "x/../install.sh"
+expect_pin_rejected "target_path absolute"         target_path "/install.sh"
+
+expect_symlinked_target_rejected
+expect_symlinked_component_rejected
+
+# --- curl-outcome cases -------------------------------------------------------
 # Reachable and serving the pinned bytes.
 expect "matching source verifies"            0  pass "$GOOD_BODY"
 expect "non-matching source fails"           0  fail "$BAD_BODY"

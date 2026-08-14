@@ -56,13 +56,95 @@ EXPECTED_SHA="$(read_pin sha256)"
 
 # An inexact pin is not a pin. A branch name or a short commit would let the
 # "immutable source" move under a passing check.
-printf '%s\n' "$SOURCE_COMMIT" | grep -Eq '^[0-9a-f]{40}$' \
-  || die "source_commit is not a 40-character lowercase hex commit: $SOURCE_COMMIT"
-printf '%s\n' "$EXPECTED_SHA" | grep -Eq '^[0-9a-f]{64}$' \
-  || die "sha256 is not a 64-character lowercase hex digest: $EXPECTED_SHA"
-case "$TARGET_PATH" in
-  /*|*..*) die "target_path must be a repository-relative path without '..': $TARGET_PATH" ;;
-esac
+#
+# A digest proves which bytes were fetched. It does not prove that the pin's
+# fields denote where those bytes came from: a non-canonical path or repository
+# is normalised away by the URL layer, so the fetch succeeds while the recorded
+# provenance names something else. Each field is therefore validated to denote
+# exactly one thing before it is used to build a URL or to read a file.
+
+# Exactly hex, exactly this long. Tested with `case`, not a line-anchored grep,
+# because `grep -q '^…$'` matches any single line of a multi-line value.
+validate_hex() {
+  case "$2" in
+    *[!0-9a-f]*) die "$1 must be lowercase hex with no other characters: $2" ;;
+  esac
+  if [ "${#2}" -ne "$3" ]; then
+    die "$1 must be exactly $3 lowercase hex characters, got ${#2}: $2"
+  fi
+}
+
+# One rule for "this is a canonical repository-relative path", used for every
+# path field in the pin. Writing it once is the point: a source path validated
+# differently from a target path is two definitions of the same claim.
+validate_pin_path() {
+  case "$2" in
+    "") die "$1 must not be empty" ;;
+    /*) die "$1 must be repository-relative, not absolute: $2" ;;
+    */) die "$1 must not end with '/': $2" ;;
+    *//*) die "$1 must not contain an empty path segment: $2" ;;
+    *..*) die "$1 must not contain '..': $2" ;;
+    . | ./* | */./* | */.) die "$1 must not contain a '.' segment: $2" ;;
+    *[!A-Za-z0-9._/-]*)
+      die "$1 may only contain [A-Za-z0-9._/-] so it cannot carry an encoded or
+  otherwise normalised traversal: $2"
+      ;;
+  esac
+}
+
+# owner/repo, exactly one slash, each part restricted to what GitHub allows.
+validate_source_repo() {
+  case "$1" in
+    */*/*) die "source_repo must be exactly owner/repo with one slash: $1" ;;
+    */*) ;;
+    *) die "source_repo must be owner/repo: $1" ;;
+  esac
+  _owner="${1%%/*}"
+  _repo="${1#*/}"
+  case "$_owner" in
+    "") die "source_repo owner is empty: $1" ;;
+    -* | *-) die "source_repo owner must not start or end with '-': $1" ;;
+    *[!A-Za-z0-9-]*) die "source_repo owner may only contain [A-Za-z0-9-]: $1" ;;
+  esac
+  case "$_repo" in
+    "") die "source_repo repository is empty: $1" ;;
+    . | ..) die "source_repo repository must be a name, not '$_repo': $1" ;;
+    *[!A-Za-z0-9._-]*) die "source_repo repository may only contain [A-Za-z0-9._-]: $1" ;;
+  esac
+}
+
+# The pin names a path, so that path must hold the bytes rather than resolve to
+# them. Rejects a symlinked target and any symlinked component above it, before
+# anything is hashed: a digest taken through a link describes bytes at a location
+# the pin does not name.
+require_real_path() {
+  _cur="$1"
+  _rest="$2"
+  while [ -n "$_rest" ]; do
+    case "$_rest" in
+      */*)
+        _seg="${_rest%%/*}"
+        _rest="${_rest#*/}"
+        ;;
+      *)
+        _seg="$_rest"
+        _rest=""
+        ;;
+    esac
+    _cur="$_cur/$_seg"
+    if [ -L "$_cur" ]; then
+      die "$2: '$_cur' is a symbolic link
+  the pinned path must be the file itself, not a link that resolves to matching
+  bytes, or the digest proves nothing about the path the pin names"
+    fi
+  done
+}
+
+validate_source_repo "$SOURCE_REPO"
+validate_hex source_commit "$SOURCE_COMMIT" 40
+validate_hex sha256 "$EXPECTED_SHA" 64
+validate_pin_path source_path "$SOURCE_PATH"
+validate_pin_path target_path "$TARGET_PATH"
 
 # The one rule.
 verify_digest() {
@@ -81,6 +163,7 @@ verify_digest() {
   printf 'ok   %s matches the pinned digest\n' "$label"
 }
 
+require_real_path "$ROOT" "$TARGET_PATH"
 verify_digest "committed $TARGET_PATH" "$ROOT/$TARGET_PATH" "$EXPECTED_SHA"
 
 # The immutable source URL is derived here from the pin's own fields, so the
