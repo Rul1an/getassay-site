@@ -11,8 +11,15 @@
 #
 # Fail closed: a missing pin, a pin whose shape is not exact, a missing file, a
 # digest mismatch, or a reachable host that cannot serve the pinned commit all
-# exit non-zero. Only genuine loss of connectivity downgrades to a skip, and the
-# skip says out loud which claim was not established.
+# exit non-zero. Only two narrow cases downgrade to a skip: curl is not
+# installed, or no connection could be established at all (curl 6 or 7). A
+# transport that started and then failed is never a skip -- notably a TLS
+# handshake failure (curl 35), which can be a bad certificate or an intercepting
+# proxy rather than absence of network. Every skip says out loud which claim it
+# did not establish.
+#
+# This check is manual in this slice. Nothing schedules it and no workflow runs
+# it, so a green run describes the moment it was run and nothing later.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -93,14 +100,27 @@ if command -v curl >/dev/null 2>&1; then
       verify_digest "immutable source $RAW_URL" "$TMP/source" "$EXPECTED_SHA"
       network_checked=1
       ;;
-    6 | 7 | 28 | 35)
-      # DNS failure, connection refused, timeout, TLS handshake: offline.
-      printf 'skip network unreachable (curl %s); did not fetch %s\n' "$curl_rc" "$RAW_URL"
+    6 | 7)
+      # 6 = could not resolve host, 7 = could not connect. No transport was
+      # established, so there is no evidence either way about the source. This
+      # is the only connectivity case narrow enough to be absence rather than a
+      # failed check.
+      printf 'skip no connection could be established (curl %s); did not fetch %s\n' \
+        "$curl_rc" "$RAW_URL"
       ;;
     *)
+      # Everything else fails closed, including cases that look like "network
+      # trouble". curl 35 is a TLS handshake failure, which can mean a bad or
+      # untrusted certificate or an intercepting proxy -- treating it as offline
+      # would let exactly the situation you most want to catch pass as a skip.
+      # curl 28 is a timeout that may have aborted mid-transfer, which is also
+      # not evidence of absence. curl 22 means the host answered and could not
+      # serve the pinned commit, which is a pin defect.
       die "immutable source fetch failed (curl exit $curl_rc): $RAW_URL
-  the host answered but could not serve the pinned commit, which is a pin defect
-  rather than an offline run"
+  this is not treated as an offline run: only curl 6 and 7 (no connection
+  established) skip. A TLS handshake failure, a timeout, or an HTTP error is a
+  failed verification, because none of them is evidence that the source is
+  simply unreachable"
       ;;
   esac
 else
