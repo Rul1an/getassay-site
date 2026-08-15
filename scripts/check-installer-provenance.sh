@@ -18,8 +18,9 @@
 # proxy rather than absence of network. Every skip says out loud which claim it
 # did not establish.
 #
-# This check is manual in this slice. Nothing schedules it and no workflow runs
-# it, so a green run describes the moment it was run and nothing later.
+# Pull requests and main pushes run this checker through site-contract.yml. It
+# validates the committed installer and, when reachable, the immutable pinned
+# source. It deliberately does not claim that the live deployment matches.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
