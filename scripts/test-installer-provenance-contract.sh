@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Focused contract for scripts/check-installer-provenance.sh (Rul1an/assay#2377).
 #
-# Drives the checker with a stub curl on PATH, so every curl outcome is exercised
-# without network access. The property under test is the skip boundary: only "no
-# connection could be established" may downgrade to a skip, and every other curl
-# failure must fail closed.
+# Drives the checker with a stub curl on PATH, so source and live outcomes are
+# exercised without network access. Default mode permits only "no connection
+# could be established" as an explicit non-claim; live mode makes that state a
+# distinct non-zero unavailable result. Every other curl failure fails closed.
 #
 # curl 35 is the case this file exists for. A TLS handshake failure can mean an
 # untrusted certificate or an intercepting proxy, so classifying it as "offline"
@@ -29,18 +29,31 @@ make_stub() {
   mkdir -p "$SCRATCH/bin"
   cat >"$SCRATCH/bin/curl" <<'STUB'
 #!/usr/bin/env bash
-# Exits STUB_RC. On 0, copies STUB_BODY to the -o destination.
+# Uses separate source/live outcomes so live verification cannot pass by
+# accidentally re-reading the immutable source fixture.
 out=""
 prev=""
+url=""
 for arg in "$@"; do
   case "$prev" in -o) out="$arg" ;; esac
   prev="$arg"
+  case "$arg" in https://*) url="$arg" ;; esac
 done
-if [ "${STUB_RC:?}" -eq 0 ]; then
-  [ -n "$out" ] && cp "${STUB_BODY:?}" "$out"
+case "$url" in
+  https://getassay.dev/install.sh)
+    rc="${STUB_LIVE_RC:-${STUB_RC:?}}"
+    body="${STUB_LIVE_BODY:-${STUB_BODY:?}}"
+    ;;
+  *)
+    rc="${STUB_SOURCE_RC:-${STUB_RC:?}}"
+    body="${STUB_SOURCE_BODY:-${STUB_BODY:?}}"
+    ;;
+esac
+if [ "$rc" -eq 0 ]; then
+  [ -n "$out" ] && cp "$body" "$out"
   exit 0
 fi
-exit "${STUB_RC}"
+exit "$rc"
 STUB
   chmod +x "$SCRATCH/bin/curl"
 }
@@ -54,6 +67,53 @@ run_checker() {
   local got=$?
   set -e
   printf '%s\n' "$got"
+}
+
+# Drives the opt-in live mode. Exit 2 is reserved for an unavailable endpoint;
+# it must not collapse into either verification success or a digest mismatch.
+run_live_checker() {
+  make_stub
+  set +e
+  STUB_RC=0 STUB_BODY="$GOOD_BODY" \
+    STUB_SOURCE_RC="$1" STUB_SOURCE_BODY="${2:-$GOOD_BODY}" \
+    STUB_LIVE_RC="$3" STUB_LIVE_BODY="${4:-$GOOD_BODY}" \
+    PATH="$SCRATCH/bin:$PATH" \
+    bash "$CHECKER" --verify-live >"$SCRATCH/out" 2>&1
+  local got=$?
+  set -e
+  printf '%s\n' "$got"
+}
+
+expect_live() {
+  local label="$1" source_rc="$2" live_rc="$3" want="$4"
+  local source_body="${5:-$GOOD_BODY}" live_body="${6:-$GOOD_BODY}" got
+  got="$(run_live_checker "$source_rc" "$source_body" "$live_rc" "$live_body")"
+  if { [ "$want" = pass ] && [ "$got" -eq 0 ]; } ||
+     { [ "$want" = fail ] && [ "$got" -eq 1 ]; } ||
+     { [ "$want" = unavailable ] && [ "$got" -eq 2 ]; }; then
+    printf 'ok   %s (source %s, live %s -> checker exit %s)\n' \
+      "$label" "$source_rc" "$live_rc" "$got"
+  else
+    printf 'FAIL %s: wanted %s, checker exited %s\n' "$label" "$want" "$got" >&2
+    sed 's/^/      /' "$SCRATCH/out" >&2
+    failures=$((failures + 1))
+  fi
+}
+
+expect_live_report() {
+  run_live_checker 0 "$GOOD_BODY" 0 "$GOOD_BODY" >/dev/null
+  for field in site_commit source_commit expected_sha256 live_sha256 live_url; do
+    if ! grep -Eq "^${field}=[^[:space:]]+$" "$SCRATCH/out"; then
+      printf 'FAIL live report omitted %s\n' "$field" >&2
+      sed 's/^/      /' "$SCRATCH/out" >&2
+      failures=$((failures + 1))
+    fi
+  done
+  if ! grep -Fxq 'live_url=https://getassay.dev/install.sh' "$SCRATCH/out"; then
+    printf 'FAIL live report did not name the production installer URL\n' >&2
+    sed 's/^/      /' "$SCRATCH/out" >&2
+    failures=$((failures + 1))
+  fi
 }
 
 expect() {
@@ -288,6 +348,27 @@ expect "peer certificate failure fails closed" 60 fail
 expect "timeout fails closed"               28  fail
 expect "HTTP error fails closed"            22  fail
 expect "unknown curl failure fails closed"  99  fail
+
+# --- live-deployment mode ----------------------------------------------------
+# Live mode is operational proof, not the PR-time offline boundary. An endpoint
+# that cannot be reached is unavailable (exit 2), never a verified result.
+expect_live "matching live installer verifies" 0 0 pass
+expect_live "live digest mismatch fails" 0 0 fail "$GOOD_BODY" "$BAD_BODY"
+expect_live "live DNS unavailable is distinct" 0 6 unavailable
+expect_live "live connection unavailable is distinct" 0 7 unavailable
+expect_live "immutable source unavailable is distinct in live mode" 6 0 unavailable
+expect_live_report
+
+set +e
+bash "$CHECKER" --not-a-real-mode >"$SCRATCH/out" 2>&1
+unknown_mode_rc=$?
+set -e
+if [ "$unknown_mode_rc" -eq 0 ]; then
+  printf 'FAIL unknown checker mode was accepted\n' >&2
+  failures=$((failures + 1))
+else
+  printf 'ok   unknown checker mode rejected (exit %s)\n' "$unknown_mode_rc"
+fi
 
 if [ "$failures" -ne 0 ]; then
   printf 'installer provenance contract: %s failure(s)\n' "$failures" >&2

@@ -16,12 +16,17 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
 
       - name: Verify scoped security headers
         run: python3 scripts/test-site-headers-contract.py
 
       - name: Verify site contract workflow wiring
         run: python3 scripts/test-site-contract-workflow.py
+
+      - name: Verify live drift workflow wiring
+        run: python3 scripts/test-installer-live-drift-workflow.py
 
   installer_provenance:
     name: Installer provenance contract
@@ -30,6 +35,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
 
       - name: Verify offline installer provenance contract
         run: bash scripts/test-installer-provenance-contract.sh
