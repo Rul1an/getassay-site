@@ -18,15 +18,33 @@
 # proxy rather than absence of network. Every skip says out loud which claim it
 # did not establish.
 #
-# Pull requests and main pushes run this checker through site-contract.yml. It
-# validates the committed installer and, when reachable, the immutable pinned
-# source. It deliberately does not claim that the live deployment matches.
+# Pull requests and main pushes run the default mode through site-contract.yml.
+# The opt-in --verify-live mode is reserved for the scheduled/manual operational
+# proof: there, an unreachable source or deployment exits 2 (unavailable) rather
+# than publishing a verified result.
 set -euo pipefail
+
+VERIFY_LIVE=0
+case "$#" in
+  0) ;;
+  1)
+    [ "$1" = "--verify-live" ] || {
+      printf 'usage: %s [--verify-live]\n' "$0" >&2
+      exit 1
+    }
+    VERIFY_LIVE=1
+    ;;
+  *)
+    printf 'usage: %s [--verify-live]\n' "$0" >&2
+    exit 1
+    ;;
+esac
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PIN="$ROOT/install.provenance.json"
 
 die() { printf 'FAIL %s\n' "$*" >&2; exit 1; }
+unavailable() { printf 'UNAVAILABLE %s\n' "$*" >&2; exit 2; }
 
 [ -f "$PIN" ] || die "missing provenance pin: $PIN"
 command -v shasum >/dev/null 2>&1 || die "shasum is required to compute SHA-256"
@@ -189,6 +207,45 @@ verify_digest() {
   printf 'ok   %s matches the pinned digest\n' "$label"
 }
 
+# Fetch one URL under the mode's availability policy. A 0 return means bytes
+# were written. A 2 return is the default mode's explicit no-connection skip;
+# required/live mode exits the process as unavailable instead.
+fetch_url() {
+  url="$1"
+  output="$2"
+  required="$3"
+  label="$4"
+
+  if ! command -v curl >/dev/null 2>&1; then
+    if [ "$required" -eq 1 ]; then
+      unavailable "curl is required to verify $label: $url"
+    fi
+    printf 'skip curl not installed; did not fetch %s\n' "$url"
+    return 2
+  fi
+
+  set +e
+  curl -fsSL --max-time 20 "$url" -o "$output"
+  curl_rc=$?
+  set -e
+  case "$curl_rc" in
+    0) return 0 ;;
+    6 | 7)
+      if [ "$required" -eq 1 ]; then
+        unavailable "$label could not be reached (curl $curl_rc): $url"
+      fi
+      printf 'skip no connection could be established (curl %s); did not fetch %s\n' \
+        "$curl_rc" "$url"
+      return 2
+      ;;
+    *)
+      die "$label fetch failed (curl exit $curl_rc): $url
+  this is not treated as an offline run: only curl 6 and 7 mean no connection
+  was established. TLS, timeout, and HTTP errors are failed verification"
+      ;;
+  esac
+}
+
 require_real_path "$ROOT" "$TARGET_PATH"
 verify_digest "committed $TARGET_PATH" "$ROOT/$TARGET_PATH" "$EXPECTED_SHA"
 
@@ -196,44 +253,12 @@ verify_digest "committed $TARGET_PATH" "$ROOT/$TARGET_PATH" "$EXPECTED_SHA"
 # repository states the commit once.
 RAW_URL="https://raw.githubusercontent.com/${SOURCE_REPO}/${SOURCE_COMMIT}/${SOURCE_PATH}"
 
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
 network_checked=0
-if command -v curl >/dev/null 2>&1; then
-  TMP="$(mktemp -d)"
-  trap 'rm -rf "$TMP"' EXIT
-  set +e
-  curl -fsSL --max-time 20 "$RAW_URL" -o "$TMP/source"
-  curl_rc=$?
-  set -e
-  case "$curl_rc" in
-    0)
-      verify_digest "immutable source $RAW_URL" "$TMP/source" "$EXPECTED_SHA"
-      network_checked=1
-      ;;
-    6 | 7)
-      # 6 = could not resolve host, 7 = could not connect. No transport was
-      # established, so there is no evidence either way about the source. This
-      # is the only connectivity case narrow enough to be absence rather than a
-      # failed check.
-      printf 'skip no connection could be established (curl %s); did not fetch %s\n' \
-        "$curl_rc" "$RAW_URL"
-      ;;
-    *)
-      # Everything else fails closed, including cases that look like "network
-      # trouble". curl 35 is a TLS handshake failure, which can mean a bad or
-      # untrusted certificate or an intercepting proxy -- treating it as offline
-      # would let exactly the situation you most want to catch pass as a skip.
-      # curl 28 is a timeout that may have aborted mid-transfer, which is also
-      # not evidence of absence. curl 22 means the host answered and could not
-      # serve the pinned commit, which is a pin defect.
-      die "immutable source fetch failed (curl exit $curl_rc): $RAW_URL
-  this is not treated as an offline run: only curl 6 and 7 (no connection
-  established) skip. A TLS handshake failure, a timeout, or an HTTP error is a
-  failed verification, because none of them is evidence that the source is
-  simply unreachable"
-      ;;
-  esac
-else
-  printf 'skip curl not installed; did not fetch %s\n' "$RAW_URL"
+if fetch_url "$RAW_URL" "$TMP/source" "$VERIFY_LIVE" "immutable source"; then
+  verify_digest "immutable source $RAW_URL" "$TMP/source" "$EXPECTED_SHA"
+  network_checked=1
 fi
 
 if [ "$network_checked" -eq 1 ]; then
@@ -241,4 +266,23 @@ if [ "$network_checked" -eq 1 ]; then
 else
   printf 'installer provenance: verified against the pin ONLY\n'
   printf '     not established this run: that the pin still matches upstream %s\n' "$SOURCE_REPO"
+fi
+
+if [ "$VERIFY_LIVE" -eq 1 ]; then
+  command -v git >/dev/null 2>&1 || die "git is required to identify the site commit"
+  SITE_COMMIT="$(git -C "$ROOT" rev-parse --verify HEAD 2>/dev/null)" || \
+    die "could not identify the checked-out site commit"
+  validate_hex site_commit "$SITE_COMMIT" 40
+
+  LIVE_URL="https://getassay.dev/install.sh"
+  printf 'site_commit=%s\n' "$SITE_COMMIT"
+  printf 'source_commit=%s\n' "$SOURCE_COMMIT"
+  printf 'expected_sha256=%s\n' "$EXPECTED_SHA"
+  printf 'live_url=%s\n' "$LIVE_URL"
+
+  fetch_url "$LIVE_URL" "$TMP/live" 1 "live installer"
+  LIVE_SHA="$(shasum -a 256 "$TMP/live" | awk '{print $1}')"
+  printf 'live_sha256=%s\n' "$LIVE_SHA"
+  verify_digest "live installer $LIVE_URL" "$TMP/live" "$EXPECTED_SHA"
+  printf 'installer provenance: live deployment verified against the reviewed pin\n'
 fi

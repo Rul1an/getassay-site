@@ -1,0 +1,23 @@
+name: Installer live drift
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 4 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  live_drift:
+    name: Installer live drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+
+      - name: Verify deployed installer against reviewed provenance
+        run: bash scripts/check-installer-provenance.sh --verify-live

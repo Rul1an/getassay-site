@@ -22,9 +22,20 @@ bash scripts/check-installer-provenance.sh
 
 The first command exercises the fail-closed and offline boundary without using
 the network. The second checks the committed installer and, when reachable, the
-immutable source. These checks do **not** prove that the currently deployed
-`https://getassay.dev/install.sh` matches the repository; live drift remains a
-separate operational measurement.
+immutable source.
+
+`.github/workflows/installer-live-drift.yml` is the authoritative deployment
+signal. It runs daily and can be dispatched manually. Its `--verify-live` mode
+also checks `https://getassay.dev/install.sh` and reports the site commit, pinned
+Assay commit, expected digest, and live digest. Exit `1` means invalid provenance
+or drift. Exit `2` means the source or live endpoint was unavailable; that is a
+failed operational proof, not a verified deployment.
+
+Recovery does not bypass provenance: fix or revert the site branch through a PR,
+wait for Cloudflare Pages to deploy `main`, then manually dispatch **Installer
+live drift**. The required **Installer provenance contract** protects source and
+pin changes before merge; Cloudflare Pages reports deployment completion; only
+the live-drift workflow verifies the bytes served by the production domain.
 
 ## Files
 
