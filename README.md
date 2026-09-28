@@ -37,6 +37,19 @@ live drift**. The required **Installer provenance contract** protects source and
 pin changes before merge; Cloudflare Pages reports deployment completion; only
 the live-drift workflow verifies the bytes served by the production domain.
 
+## Release handoff
+
+For each selected Assay release, compare its `scripts/install.sh` bytes at the
+peeled release commit with the site copy and `install.provenance.json` pin. If
+they differ, open a reviewed promotion PR that copies the released bytes exactly
+and updates the existing provenance fields. Retain the release tag and peeled
+source commit, source digest, reviewed site commit, and subsequent merge identity
+in the handoff. Pin parity alone does not establish release freshness.
+
+After deployment, verify the live bytes separately through **Installer live
+drift** and retain its run, site/source identities, and live digest. A source
+promotion or a passing PR check does not establish what the live endpoint serves.
+
 ## Files
 
 -   `index.html`: The landing page.
