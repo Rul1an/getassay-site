@@ -1,8 +1,8 @@
 {
   "schema": "getassay.installer_provenance.v1",
   "source_repo": "Rul1an/assay",
-  "source_commit": "61f1adf57302fb8c49ebdbbb29e1ae2adac9694e",
+  "source_commit": "feab2a8f2d3094a1d3e8c623b9d8563550d04335",
   "source_path": "scripts/install.sh",
   "target_path": "install.sh",
-  "sha256": "343f76fa359320b59be3d55f6e5c94500af4504ce12d5e79271333be8bba0364"
+  "sha256": "8fd4e0327bbb4f33f0709662d0622414a1f2c1f0f048ad3dd643175d8b7b85dc"
 }
