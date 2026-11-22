@@ -2,7 +2,7 @@
 
 > Assay checks routed stdio MCP tool calls against a configured policy. It also verifies recorded evidence bundles offline.
 
-With an explicit tool allowlist, the enforcing wrapper rejects unlisted tools. Omitting the allowlist leaves tools permitted unless another rule denies the call. A decision to forward a call records what the wrapper allowed. Evidence of a server-side effect requires a separate observation.
+With an explicit tool allowlist, the enforcing wrapper rejects unlisted tools. Omitting the allowlist leaves tools permitted unless another rule denies the call. With `--decision-log` and `--event-source`, the wrapper records its policy decisions. Evidence of a server-side effect requires a separate observation.
 
 ## Docs
 
