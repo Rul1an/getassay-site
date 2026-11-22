@@ -6,15 +6,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Assay - Runtime Security for AI Agents</title>
     <meta name="description"
-        content="Deterministic replay, policy enforcement, and evidence bundles for autonomous agents. Runs offline. No telemetry. No vendor lock-in.">
+        content="Check routed stdio MCP tool calls against a policy and verify recorded evidence bundles offline.">
     <link rel="canonical" href="https://getassay.dev/">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://getassay.dev/">
     <meta property="og:title" content="Assay - Runtime Security for AI Agents">
-    <meta property="og:description" content="Policy-as-code for MCP agents: deny risky tool calls before they run, prove what ran with offline-verifiable evidence, enforce egress in the kernel (eBPF/LSM). No backend, no telemetry.">
+    <meta property="og:description" content="Check routed stdio MCP tool calls against a policy and verify recorded evidence bundles offline.">
     <meta name="twitter:card" content="summary">
     <meta name="twitter:title" content="Assay - Runtime Security for AI Agents">
-    <meta name="twitter:description" content="Deny risky MCP tool calls before they run; prove what ran with offline-verifiable evidence.">
+    <meta name="twitter:description" content="Check routed stdio MCP tool calls against a policy and verify recorded evidence bundles offline.">
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -25,7 +25,7 @@
       "url": "https://getassay.dev",
       "sameAs": ["https://github.com/Rul1an/assay", "https://crates.io/crates/assay-cli"],
       "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"},
-      "description": "Policy-as-code gate for MCP agent tool calls: deterministic fail-closed enforcement, offline-verifiable evidence bundles, and kernel-level (eBPF/LSM) egress enforcement on Linux.",
+      "description": "Check routed stdio MCP tool calls against a policy and verify recorded evidence bundles offline.",
       "softwareHelp": "https://github.com/Rul1an/assay/blob/main/README.md",
       "license": "https://github.com/Rul1an/assay/blob/main/LICENSE"
     }
@@ -287,15 +287,15 @@
             </a>
             <nav>
                 <a href="https://github.com/Rul1an/assay">GitHub</a>
-                <a href="https://docs.assay.dev">Docs</a>
+                <a href="https://docs.getassay.dev">Docs</a>
             </nav>
         </header>
 
         <section class="hero">
             <div class="pill">runs offline • no telemetry • rust native</div>
             <h1>Runtime Security for<br>Autonomous Agents.</h1>
-            <p class="subtitle">Deterministic replay, policy enforcement, and cryptographic evidence bundles. Protect
-                your agentic workflows from hallucinated tool calls.</p>
+            <p class="subtitle">Route a local MCP server through Assay to check tool names and arguments against your policy.
+                Review the recorded decisions offline.</p>
 
             <div class="cta-group">
                 <a href="https://github.com/Rul1an/assay" class="btn btn-primary">Try it on GitHub</a>
@@ -314,27 +314,24 @@
         <section class="features">
             <div class="card">
                 <div class="card-icon">⚡</div>
-                <h3>Zero Latency</h3>
-                <p>Built in Rust with eBPF enforcement. Overhead measured in microseconds, designed for high-throughput
-                    agent loops.</p>
+                <h3>Local enforcement</h3>
+                <p>The stdio wrapper checks a routed tool request before forwarding it to the server.</p>
             </div>
             <div class="card">
                 <div class="card-icon">🔒</div>
-                <h3>Strict Policy</h3>
-                <p>Deny-by-default execution for MCP servers. Validate every tool call against regex patterns and
-                    semantic constraints.</p>
+                <h3>Tool allowlists</h3>
+                <p>An explicit allowlist restricts which tools can run through the wrapper. Without it, tools
+                    are permitted unless another rule denies the call.</p>
             </div>
             <div class="card">
                 <div class="card-icon">📦</div>
                 <h3>Evidence Bundles</h3>
-                <p>Generate cryptographic proof of compliance. JCS canonicalization and Merkle roots ensure audit-ready
-                    traceability.</p>
+                <p>Run <code>assay evidence verify</code> on a saved bundle and review the result. With <code>--decision-log</code> and <code>--event-source</code>, the wrapper records its policy decisions. A server-side effect needs separate evidence.</p>
             </div>
             <div class="card">
                 <div class="card-icon">🧪</div>
                 <h3>Deterministic Replay</h3>
-                <p>Re-run agent traces offline with exact input reproduction. Eliminate flaky tests in your CI pipeline.
-                </p>
+                <p>Evaluate a saved trace against your test configuration in CI.</p>
             </div>
         </section>
 
