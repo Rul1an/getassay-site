@@ -12,7 +12,7 @@ https://:version.:project.pages.dev/*
   X-Robots-Tag: noindex
 
 /
-  Content-Security-Policy: default-src 'none'; base-uri 'none'; connect-src 'none'; font-src 'self'; form-action 'none'; frame-ancestors 'none'; img-src 'self' data:; media-src 'self'; object-src 'none'; script-src 'sha256-DyRvcHKnBW0FDEiAi4Ppeg497Fg6Z7fwn009F8bx1SY='; style-src 'sha256-BpfynMpLzenmk4LpivxiuWFgGdGL8KmfHHWStbJhUgo='; upgrade-insecure-requests; worker-src 'none'
+  Content-Security-Policy: default-src 'none'; base-uri 'none'; connect-src 'none'; font-src 'self'; form-action 'none'; frame-ancestors 'none'; img-src 'self' data:; media-src 'self'; object-src 'none'; script-src 'sha256-6owYvHZq+FrcQOFlR1qHtmJA4UmSMVgPioCS0T1StO4='; style-src 'sha256-BpfynMpLzenmk4LpivxiuWFgGdGL8KmfHHWStbJhUgo='; upgrade-insecure-requests; worker-src 'none'
 
 /*.html
-  Content-Security-Policy: default-src 'none'; base-uri 'none'; connect-src 'none'; font-src 'self'; form-action 'none'; frame-ancestors 'none'; img-src 'self' data:; media-src 'self'; object-src 'none'; script-src 'sha256-DyRvcHKnBW0FDEiAi4Ppeg497Fg6Z7fwn009F8bx1SY='; style-src 'sha256-BpfynMpLzenmk4LpivxiuWFgGdGL8KmfHHWStbJhUgo='; upgrade-insecure-requests; worker-src 'none'
+  Content-Security-Policy: default-src 'none'; base-uri 'none'; connect-src 'none'; font-src 'self'; form-action 'none'; frame-ancestors 'none'; img-src 'self' data:; media-src 'self'; object-src 'none'; script-src 'sha256-6owYvHZq+FrcQOFlR1qHtmJA4UmSMVgPioCS0T1StO4='; style-src 'sha256-BpfynMpLzenmk4LpivxiuWFgGdGL8KmfHHWStbJhUgo='; upgrade-insecure-requests; worker-src 'none'
